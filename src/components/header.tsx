@@ -9,10 +9,7 @@ const Header = ({ label, progressPercent }: HeaderProps) => (
 
     {progressPercent && (
       <div className='absolute bottom-0 bg-[#E5E5E5] w-full h-[3px]'>
-        <div
-          className='bg-black h-[3px]'
-          style={{ width: progressPercent }}
-        ></div>
+        <div className='bg-black h-[3px]' style={{ width: progressPercent }} />
       </div>
     )}
   </div>
