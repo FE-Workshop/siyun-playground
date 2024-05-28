@@ -15,7 +15,8 @@ interface FunnelComponent extends FC<FunnelProps> {
 
 type UseFunnelReturn = {
   Funnel: FunnelComponent
-  setStep: (step: string) => void
+  onNext: () => void
+  onPrev: () => void
 }
 
 const useFunnel = (steps: string[]): UseFunnelReturn => {
@@ -32,9 +33,23 @@ const useFunnel = (steps: string[]): UseFunnelReturn => {
     return <>{currentStep}</>
   }
 
+  const onNext = () => {
+    const currentIndex = steps.indexOf(step)
+    if (currentIndex < steps.length - 1) {
+      setStep(steps[currentIndex + 1])
+    }
+  }
+
+  const onPrev = () => {
+    const currentIndex = steps.indexOf(step)
+    if (currentIndex > 0) {
+      setStep(steps[currentIndex - 1])
+    }
+  }
+
   Funnel.Step = Step
 
-  return { Funnel, setStep }
+  return { Funnel, onNext, onPrev }
 }
 
 export default useFunnel
