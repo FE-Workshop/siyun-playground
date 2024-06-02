@@ -1,31 +1,36 @@
-import { useState, useRef, useEffect } from 'react'
+import { useState, useRef, useEffect, useCallback } from 'react'
 import axios from 'axios'
-
-import useIntersectionObserver from '../hooks/use-intersection-observer'
 import Card from '../components/card'
 
+interface PokemonData {
+  name: string
+  url: string
+}
+
+const ITEM_HEIGHT = 140
+const BUFFER = 5
+
 const InfiniteScroll = () => {
-  const target = useRef(null)
   const [offset, setOffset] = useState(0)
   const [loading, setLoading] = useState(true)
-  const [pokemonData, setPokemonData] = useState()
+  const [pokemonData, setPokemonData] = useState<PokemonData[]>([])
   const [pokemonCount, setPokemonCount] = useState(0)
   const [isError, setIsError] = useState(false)
+  const [scrollTop, setScrollTop] = useState(0)
+  const containerRef = useRef<HTMLDivElement | null>(null)
 
-  const getPokemonData = () => {
+  const getPokemonData = useCallback(() => {
     axios
       .get(`https://pokeapi.co/api/v2/pokemon?offset=${offset}&limit=20`)
       .then((res) => {
-        pokemonData
-          ? setPokemonData((preData) => preData.concat(res.data.results))
-          : setPokemonData(res.data.results)
+        setPokemonData((prevData) => [...prevData, ...res.data.results])
         setLoading(false)
         setIsError(false)
       })
-      .catch(setIsError(true))
-  }
+      .catch(() => setIsError(true))
+  }, [offset])
 
-  const getPokemonTotalCount = () => {
+  const getPokemonTotalCount = useCallback(() => {
     axios
       .get(`https://pokeapi.co/api/v2/pokemon`)
       .then((res) => {
@@ -33,33 +38,71 @@ const InfiniteScroll = () => {
         setLoading(false)
         setIsError(false)
       })
-      .catch(setIsError(true))
-  }
-
-  const [observe, unobserve] = useIntersectionObserver(() => {
-    setOffset((prev) => prev + 20)
-  })
+      .catch(() => setIsError(true))
+  }, [])
 
   useEffect(() => {
     getPokemonTotalCount()
     getPokemonData()
+  }, [getPokemonData, getPokemonTotalCount])
+
+  useEffect(() => {
+    if (offset > 0) getPokemonData()
+  }, [offset, getPokemonData])
+
+  const handleScroll = useCallback(() => {
+    if (!containerRef.current) return
+    const scrollY = containerRef.current.scrollTop
+    setScrollTop(scrollY)
+    if (
+      scrollY + containerRef.current.clientHeight >=
+      containerRef.current.scrollHeight - ITEM_HEIGHT
+    ) {
+      setOffset((prev) => prev + 20)
+    }
   }, [])
 
   useEffect(() => {
-    if (offset < pokemonCount) observe(target.current)
-    if (pokemonCount > 0 && pokemonCount <= offset) unobserve(target.current)
-  }, [pokemonData])
+    const container = containerRef.current
+    if (container) {
+      container.addEventListener('scroll', handleScroll)
+      return () => container.removeEventListener('scroll', handleScroll)
+    }
+  }, [handleScroll])
 
-  useEffect(() => {
-    if (offset) getPokemonData()
-  }, [offset])
+  const startIndex = Math.max(0, Math.floor(scrollTop / ITEM_HEIGHT) - BUFFER)
+  const endIndex = Math.min(
+    pokemonCount,
+    Math.ceil((scrollTop + window.innerHeight) / ITEM_HEIGHT) + BUFFER
+  )
+
+  const visibleItems = pokemonData.slice(startIndex, endIndex)
 
   return (
-    <div className='flex flex-col items-center'>
-      {pokemonData?.map((data, index) => (
-        <Card key={index} data={data} />
-      ))}
-      <div ref={target} className='w-full h-[30px] bg-red-500' />
+    <div
+      ref={containerRef}
+      className='h-screen overflow-y-auto flex justify-center'
+    >
+      {loading ? (
+        <div>Loading...</div>
+      ) : (
+        <div
+          style={{ height: pokemonCount * ITEM_HEIGHT, position: 'relative' }}
+        >
+          {visibleItems.map((data, index) => (
+            <div
+              key={startIndex + index}
+              className='absolute w-full'
+              style={{
+                top: (startIndex + index) * ITEM_HEIGHT,
+              }}
+            >
+              <Card data={data} />
+            </div>
+          ))}
+        </div>
+      )}
+      {isError && <div>Error loading data.</div>}
     </div>
   )
 }

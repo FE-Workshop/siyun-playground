@@ -1,12 +1,23 @@
-import { useEffect, useState, memo } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import axios from 'axios'
 
-const Card = ({ data }) => {
+interface PokemonData {
+  name: string
+  url: string
+}
+
+interface PokemonDetailData {
+  sprites: {
+    front_default: string | null
+  }
+}
+
+const Card: React.FC<{ data: PokemonData }> = ({ data }) => {
   const [loading, setLoading] = useState(true)
-  const [pokemonData, setPokemonData] = useState()
+  const [pokemonData, setPokemonData] = useState<PokemonDetailData | null>(null)
   const [isError, setIsError] = useState(false)
 
-  const getPokemonData = () => {
+  const getPokemonData = useCallback(() => {
     axios
       .get(`${data.url}`)
       .then((res) => {
@@ -14,12 +25,15 @@ const Card = ({ data }) => {
         setLoading(false)
         setIsError(false)
       })
-      .catch(setIsError(true))
-  }
+      .catch(() => {
+        setIsError(true)
+        setLoading(false)
+      })
+  }, [data.url])
 
   useEffect(() => {
     getPokemonData()
-  }, [])
+  }, [getPokemonData])
 
   return (
     <>
@@ -27,15 +41,18 @@ const Card = ({ data }) => {
         <div>Loading...</div>
       ) : (
         <div className='w-[200px] h-[120px] flex justify-center items-center bg-gray-400/20 rounded-lg my-2'>
-          <img
-            src={pokemonData.sprites.front_default}
-            alt='pokemon img'
-            className='h-[98px]'
-          />
+          {pokemonData?.sprites.front_default && (
+            <img
+              src={pokemonData.sprites.front_default}
+              alt='pokemon img'
+              className='h-[98px]'
+            />
+          )}
         </div>
       )}
+      {isError && <div>Error loading data.</div>}
     </>
   )
 }
 
-export default memo(Card)
+export default Card
